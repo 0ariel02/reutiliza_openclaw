@@ -1,0 +1,254 @@
+{
+  "name": "Chatbot Atención al Cliente - Ejemplo",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"]
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "TU_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const message = $input.first().json.message.text.toLowerCase();\nconst chatId = $input.first().json.message.chat.id;\nconst userId = $input.first().json.message.from.id;\nconst userName = $input.first().json.message.from.first_name;\n\nlet category = 'otros';\nlet priority = 'normal';\n\n// Clasificación por palabras clave\nif (message.includes('precio') || message.includes('comprar') || message.includes('producto') || message.includes('costo')) {\n  category = 'ventas';\n} else if (message.includes('problema') || message.includes('error') || message.includes('no funciona') || message.includes('ayuda')) {\n  category = 'soporte';\n} else if (message.includes('factura') || message.includes('pago') || message.includes('recibo') || message.includes('facturación')) {\n  category = 'facturación';\n}\n\n// Detectar urgencia\nconst urgentWords = ['urgente', 'inmediato', 'ya', 'ahora mismo', 'enojado', 'queja'];\nif (urgentWords.some(word => message.includes(word))) {\n  priority = 'alta';\n}\n\nreturn [{\n  json: {\n    chatId,\n    userId,\n    userName,\n    originalMessage: $input.first().json.message.text,\n    category,\n    priority,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "clasificar",
+      "name": "Clasificar Intención",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "propertyName": "category",
+        "rules": [
+          {
+            "value": "ventas"
+          },
+          {
+            "value": "soporte"
+          },
+          {
+            "value": "facturación"
+          }
+        ]
+      },
+      "id": "switch",
+      "name": "Switch Categoría",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const respuestasVentas = [\n  \"¡Hola {{userName}}! 👋 Gracias por tu interés en nuestros productos. Tenemos opciones desde $50 hasta $500. ¿Qué te gustaría conocer?\",\n  \"¡Excelente pregunta! 🛍️ Tenemos envío gratis en compras mayores a $100. ¿Hay algún producto específico que te interese?\",\n  \"¡Claro que sí! 😊 Nuestros productos tienen garantía de 1 año. ¿Te puedo ayudar con algo específico?\"\n];\n\nconst chatId = $input.first().json.chatId;\nconst userName = $input.first().json.userName || 'cliente';\nconst respuesta = respuestasVentas[Math.floor(Math.random() * respuestasVentas.length)].replace('{{userName}}', userName);\n\nreturn [{\n  json: {\n    chatId,\n    text: respuesta,\n    category: 'ventas'\n  }\n}];"
+      },
+      "id": "respuesta-ventas",
+      "name": "Respuesta Ventas",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 150]
+    },
+    {
+      "parameters": {
+        "functionCode": "const respuestasSoporte = [\n  \"Entiendo que tienes un problema 🔧. ¿Podrías darme más detalles sobre qué no está funcionando?\",\n  \"Lamento escuchar eso 😕. Voy a ayudarte a resolverlo. ¿Cuándo comenzó el problema?\",\n  \"¡Gracias por reportarlo! 🛠️ Nuestro equipo de soporte está aquí para ayudarte. ¿Qué error estás viendo?\"\n];\n\nconst chatId = $input.first().json.chatId;\nconst respuesta = respuestasSoporte[Math.floor(Math.random() * respuestasSoporte.length)];\n\nreturn [{\n  json: {\n    chatId,\n    text: respuesta,\n    category: 'soporte'\n  }\n}];"
+      },
+      "id": "respuesta-soporte",
+      "name": "Respuesta Soporte",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const respuestasFacturacion = [\n  \"📄 Tu factura se genera automáticamente después del pago. ¿Necesitas que reenviemos la tuya?\",\n  \"💳 Los métodos de pago aceptados son: tarjeta, transferencia y PayPal. ¿Con cuál tienes duda?\",\n  \"✅ Todos nuestros pagos son seguros y encriptados. ¿En qué te puedo ayudar con tu factura?\"\n];\n\nconst chatId = $input.first().json.chatId;\nconst respuesta = respuestasFacturacion[Math.floor(Math.random() * respuestasFacturacion.length)];\n\nreturn [{\n  json: {\n    chatId,\n    text: respuesta,\n    category: 'facturación'\n  }\n}];"
+      },
+      "id": "respuesta-facturacion",
+      "name": "Respuesta Facturación",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 450]
+    },
+    {
+      "parameters": {
+        "functionCode": "const chatId = $input.first().json.chatId;\n\nreturn [{\n  json: {\n    chatId,\n    text: \"Gracias por tu mensaje. 🙏 Un agente humano te responderá en breve. ¿Hay algo más en lo que pueda ayudarte mientras tanto?\",\n    category: 'otros',\n    escalateToHuman: true\n  }\n}];"
+      },
+      "id": "respuesta-otros",
+      "name": "Respuesta Otros",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 600]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-enviar",
+      "name": "Telegram - Enviar Respuesta",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1050, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "TU_CREDENTIAL_ID",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "TU_SPREADSHEET_ID",
+        "sheetName": "Registros",
+        "columns": {
+          "fecha": "timestamp",
+          "usuario": "userId",
+          "nombre": "userName",
+          "mensaje": "originalMessage",
+          "categoria": "category",
+          "prioridad": "priority",
+          "escalado": "={{ $json.escalateToHuman || false }}"
+        }
+      },
+      "id": "google-sheets",
+      "name": "Google Sheets - Guardar Registro",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [1250, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "TU_CREDENTIAL_ID",
+          "name": "Google Sheets"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Clasificar Intención",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar Intención": {
+      "main": [
+        [
+          {
+            "node": "Switch Categoría",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Categoría": {
+      "main": [
+        [
+          [
+            {
+              "node": "Respuesta Ventas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "node": "Respuesta Soporte",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "node": "Respuesta Facturación",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      ]
+    },
+    "Respuesta Ventas": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta Soporte": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta Facturación": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta Otros": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Enviar Respuesta": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Guardar Registro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "ejemplo"
+  }
+}
